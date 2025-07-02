@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=595, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Herbal.Slim Magazine</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.css">
+  <style>
+    body { margin:0; background:#f6f8fa; font-family:'Noto Sans KR', Arial, sans-serif; }
+    header { text-align:center; padding:2rem 0 1rem 0; }
+    h1 { color:#2a5c7c; margin:0; font-size:2rem; }
+    .desc { color:#555; margin-bottom:1.5rem; }
+    .select-row { display:flex; justify-content:center; gap:1rem; margin-bottom:1.5rem; }
+    select { font-size:1rem; padding:0.3rem 1rem; border-radius:6px; border:1px solid #bbb; }
+    .thumbs { display:flex; flex-wrap:wrap; justify-content:center; gap:1.5rem; margin-bottom:2rem; }
+    .thumb {
+      width:110px; height:155px; background:#fff; box-shadow:0 2px 8px #b0b0b0; border-radius:8px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; position:relative;
+      transition:transform 0.15s;
+    }
+    .thumb:hover { transform:scale(1.04); box-shadow:0 4px 16px #a0a0a0; }
+    .thumb-label { margin-top:0.5rem; font-size:0.95rem; color:#2a5c7c; font-weight:500; }
+    .thumb-canvas { width:100px; height:140px; border-radius:4px; background:#eee; }
+    .magazine-viewer { display:none; flex-direction:column; align-items:center; }
+    .magazine-header { margin-bottom:1rem; text-align:center; }
+    .magazine-title { font-size:1.2rem; color:#2a5c7c; font-weight:600; }
+    .magazine-meta { color:#555; font-size:0.98rem; }
+    .magazine-container { display:flex; justify-content:center; align-items:center; min-height:80vh; }
+    #magazine {
+      width: 60vw; max-width:595px;
+      height: 84vw; max-height:842px;
+      background:#fff; box-shadow:0 4px 24px #b0b0b0; border-radius:12px; overflow:hidden;
+    }
+    @media (max-width:600px) {
+      #magazine { width:98vw; height:138vw; max-width:100vw; max-height:141vw; }
+    }
+    .nav-btn {
+      background:rgba(42,92,124,0.7); color:#fff; border:none; border-radius:50%;
+      width:44px; height:44px; font-size:2rem; cursor:pointer; margin:0 1rem; transition:background 0.2s;
+    }
+    .nav-btn:active { background:#17405a; }
+    .turn-page { background:#fff; display:flex; align-items:center; justify-content:center; }
+    .pdf-canvas { width:100% !important; height:100% !important; object-fit:contain; background:#fff; }
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #2a5c7c;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+      display: block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .back-btn {
+      margin: 1.5rem auto 0 auto;
+      display: block;
+      background: #2a5c7c;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .back-btn:active { background: #17405a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Herbal.Slim Magazine</h1>
+    <div class="desc">월별/주간별로 발행되는 허벌웹진을 잡지처럼 넘기며 감상하세요!</div>
+  </header>
+  <div class="select-row">
+    <select id="month-select"></select>
+  </div>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="magazine-viewer" id="magazine-viewer">
+    <div class="magazine-header">
+      <div class="magazine-title" id="magazine-title"></div>
+      <div class="magazine-meta" id="magazine-meta"></div>
+    </div>
+    <div class="magazine-container">
+      <button class="nav-btn" id="prev-page" title="이전 페이지">&#8592;</button>
+      <div id="magazine"></div>
+      <button class="nav-btn" id="next-page" title="다음 페이지">&#8594;</button>
+    </div>
+    <button class="back-btn" id="back-btn">목록으로</button>
+  </div>
+  <div id="loader" class="loader" style="display:none;"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
+  <script>
+    // 예시 PDF 목록 (실제 서비스는 서버에서 동적으로 받아옴)
+    const pdfList = [
+      { month: '2025-06', week: 1, title: '2025년 6월 1주차', file: 'pdfs/2025-06-1.pdf' },
+      { month: '2025-06', week: 2, title: '2025년 6월 2주차', file: 'pdfs/2025-06-2.pdf' },
+      { month: '2025-07', week: 1, title: '2025년 7월 1주차', file: 'pdfs/2025-07-1.pdf' },
+      { month: '2025-07', week: 2, title: '2025년 7월 2주차', file: 'pdfs/2025-07-2.pdf' }
+    ];
+    // 월 목록 추출
+    const months = [...new Set(pdfList.map(p => p.month))];
+    const monthSelect = document.getElementById('month-select');
+    const thumbs = document.getElementById('thumbs');
+    const loader = document.getElementById('loader');
+    const magazineViewer = document.getElementById('magazine-viewer');
+    const magazine = document.getElementById('magazine');
+    const magazineTitle = document.getElementById('magazine-title');
+    const magazineMeta = document.getElementById('magazine-meta');
+    let currentPDF = null;
+    // 월 드롭다운 채우기
+    months.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m.replace('-', '년 ') + '월';
+      monthSelect.appendChild(opt);
+    });
+    // 썸네일 생성 함수
+    async function createThumbnail(pdfUrl) {
+      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 0.25 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      canvas.className = 'thumb-canvas';
+      return canvas;
+    }
+    // 썸네일 목록 표시
+    async function showThumbnails(month) {
+      thumbs.innerHTML = '';
+      loader.style.display = 'block';
+      const filtered = pdfList.filter(p => p.month === month);
+      for (const pdf of filtered) {
+        const thumbDiv = document.createElement('div');
+        thumbDiv.className = 'thumb';
+        const canvas = await createThumbnail(pdf.file);
+        thumbDiv.appendChild(canvas);
+        const label = document.createElement('div');
+        label.className = 'thumb-label';
+        label.textContent = pdf.title;
+        thumbDiv.appendChild(label);
+        thumbDiv.onclick = () => openMagazine(pdf);
+        thumbs.appendChild(thumbDiv);
+      }
+      loader.style.display = 'none';
+    }
+    // 월 선택 시 썸네일 갱신
+    monthSelect.onchange = e => {
+      showThumbnails(e.target.value);
+    };
+    // 첫 화면에 현재 월 썸네일 표시
+    showThumbnails(months[0]);
+    monthSelect.value = months[0];
+    // 잡지 뷰어 열기
+    async function openMagazine(pdf) {
+      thumbs.style.display = 'none';
+      monthSelect.style.display = 'none';
+      loader.style.display = 'block';
+      magazineViewer.style.display = 'flex';
+      magazineTitle.textContent = 'Herbal.Slim Magazine';
+      magazineMeta.textContent = pdf.title;
+      // PDF 렌더링
+      magazine.innerHTML = '';
+      let pdfDoc = await pdfjsLib.getDocument(pdf.file).promise;
+      let totalPages = pdfDoc.numPages;
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-canvas';
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'turn-page';
+        pageDiv.appendChild(canvas);
+        magazine.appendChild(pageDiv);
+      }
+      $(magazine).turn({
+        width: magazine.clientWidth,
+        height: magazine.clientHeight,
+        autoCenter: true,
+        display: 'single',
+        acceleration: true
+      });
+      loader.style.display = 'none';
+    }
+    // 페이지 넘김 버튼
+    document.getElementById('prev-page').onclick = () => { $(magazine).turn('previous'); };
+    document.getElementById('next-page').onclick = () => { $(magazine).turn('next'); };
+    // 목록으로 돌아가기
+    document.getElementById('back-btn').onclick = () => {
+      magazineViewer.style.display = 'none';
+      thumbs.style.display = 'flex';
+      monthSelect.style.display = 'inline-block';
+      magazine.innerHTML = '';
+    };
+  </script>
+</body>
+</html> 
