@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=595, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Herbal.Slim Magazine</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.css">
   <style>
     body { margin:0; background:#f6f8fa; font-family:'Noto Sans KR', Arial, sans-serif; }
@@ -92,8 +95,6 @@
     <button class="back-btn" id="back-btn">목록으로</button>
   </div>
   <div id="loader" class="loader" style="display:none;"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
   <script>
     // 예시 PDF 목록 (실제 서비스는 서버에서 동적으로 받아옴)
     const pdfList = [
